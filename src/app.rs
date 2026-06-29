@@ -1,26 +1,39 @@
+mod renderer;
+
+use std::sync::Arc;
+
 use winit::{
-    application::ApplicationHandler, event::WindowEvent, event_loop::ActiveEventLoop,
-    keyboard::KeyCode, window::WindowId,
+    application::ApplicationHandler,
+    event::WindowEvent,
+    event_loop::ActiveEventLoop,
+    keyboard::KeyCode,
+    window::{Window, WindowId},
 };
+use winit_input_helper::WinitInputHelper;
+
+use crate::app::renderer::Engine;
 
 pub struct App {
-    input: winit_input_helper::WinitInputHelper,
-    window: Option<winit::window::Window>,
+    input: WinitInputHelper,
+    window: Option<Arc<Window>>,
+    engine: Option<Engine>,
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
-            input: winit_input_helper::WinitInputHelper::new(),
+            input: WinitInputHelper::new(),
             window: None,
+            engine: None,
         }
     }
 }
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let window_attributes = winit::window::Window::default_attributes();
-        let window = event_loop.create_window(window_attributes).unwrap();
+        let window_attributes = Window::default_attributes();
+        let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        self.engine = Some(pollster::block_on(Engine::new(window.clone())).unwrap());
         self.window = Some(window);
     }
 
