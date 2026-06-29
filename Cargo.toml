@@ -4,3 +4,24 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+color-eyre = "0.6.5"
+env_logger = "0.11.11"
+log = "0.4.33"
+winit = "0.30.13"
+winit_input_helper = "0.17.0"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+codegen-units = 1
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[profile.release.package."*"]
+opt-level = 3
+codegen-units = 1
