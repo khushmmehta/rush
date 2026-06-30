@@ -1,6 +1,6 @@
-mod render_context;
+mod context;
 
-use render_context::RenderContext;
+use context::RenderContext;
 use std::sync::Arc;
 use winit::window::Window;
 
