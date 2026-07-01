@@ -58,7 +58,7 @@ impl RenderContext {
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::AutoNoVsync,
-            desired_maximum_frame_latency: 2,
+            desired_maximum_frame_latency: 3,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![],
         };

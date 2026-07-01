@@ -40,10 +40,7 @@ impl Engine {
     pub fn render(&mut self) -> color_eyre::Result<()> {
         let output = match self.context.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture) => texture,
-            wgpu::CurrentSurfaceTexture::Suboptimal(texture) => {
-                self.context.configure_surface(self.window.inner_size());
-                texture
-            }
+            wgpu::CurrentSurfaceTexture::Suboptimal(texture) => texture,
             wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
                 return Ok(());
             }
@@ -99,8 +96,6 @@ impl Engine {
 
         self.context.queue.submit([encoder.finish()]);
         output.present();
-
-        self.window.request_redraw();
 
         Ok(())
     }
