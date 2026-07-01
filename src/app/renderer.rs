@@ -1,19 +1,34 @@
 mod context;
+mod pipeline;
 
 use context::RenderContext;
+use pipeline::PipelineBuilder;
 use std::sync::Arc;
 use winit::window::Window;
 
-#[allow(unused)]
 pub struct Engine {
     window: Arc<Window>,
     context: RenderContext,
+    render_pipeline: wgpu::RenderPipeline,
 }
 
 impl Engine {
     pub async fn new(window: Arc<Window>) -> color_eyre::Result<Self> {
         let context = RenderContext::new(window.clone()).await?;
-        Ok(Self { window, context })
+        let pipeline = PipelineBuilder::new()
+            .with_labels("Render Pipeline Layout", "Render Pipeline")
+            .with_shader(
+                &context
+                    .device
+                    .create_shader_module(wgpu::include_wgsl!("../../res/shaders/shader.wgsl")),
+            )
+            .build(&context.device);
+
+        Ok(Self {
+            window,
+            context,
+            render_pipeline: pipeline,
+        })
     }
 
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
@@ -55,7 +70,7 @@ impl Engine {
                     label: Some("Render Encoder"),
                 });
 
-        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
@@ -76,6 +91,10 @@ impl Engine {
             timestamp_writes: None,
             multiview_mask: None,
         });
+
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.draw(0..3, 0..1);
+
         drop(render_pass);
 
         self.context.queue.submit([encoder.finish()]);

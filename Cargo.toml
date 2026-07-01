@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 color-eyre = "0.6.5"
 env_logger = "0.11.11"
+hecs = "0.11.0"
 log = "0.4.33"
 pollster = "0.4.0"
 wgpu = "29.0.3"
