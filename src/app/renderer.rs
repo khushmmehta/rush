@@ -95,7 +95,7 @@ impl Engine {
         drop(render_pass);
 
         self.context.queue.submit([encoder.finish()]);
-        output.present();
+        self.context.queue.present(output);
 
         Ok(())
     }

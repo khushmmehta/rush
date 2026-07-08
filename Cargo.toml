@@ -9,7 +9,7 @@ env_logger = "0.11.11"
 hecs = "0.11.0"
 log = "0.4.33"
 pollster = "0.4.0"
-wgpu = "29.0.3"
+wgpu = "30.0.0"
 winit = "0.30.13"
 winit_input_helper = "0.17.0"
 

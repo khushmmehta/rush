@@ -3,7 +3,7 @@ pub struct PipelineBuilder<'a> {
     pipeline_label: Option<String>,
     shader: Option<&'a wgpu::ShaderModule>,
     bind_group_layouts: Vec<Option<&'a wgpu::BindGroupLayout>>,
-    buffer_layouts: Vec<wgpu::VertexBufferLayout<'static>>,
+    buffer_layouts: Vec<Option<wgpu::VertexBufferLayout<'static>>>,
 }
 
 impl<'a> PipelineBuilder<'a> {
@@ -40,7 +40,7 @@ impl<'a> PipelineBuilder<'a> {
     #[allow(unused)]
     pub fn with_buffer_layouts(
         mut self,
-        buffer_layouts: Vec<wgpu::VertexBufferLayout<'static>>,
+        buffer_layouts: Vec<Option<wgpu::VertexBufferLayout<'static>>>,
     ) -> Self {
         self.buffer_layouts = buffer_layouts;
         self
