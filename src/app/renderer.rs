@@ -2,32 +2,94 @@ mod context;
 mod pipeline;
 
 use context::RenderContext;
+use nalgebra as na;
 use pipeline::PipelineBuilder;
 use std::sync::Arc;
+use wgpu::util::DeviceExt;
 use winit::window::Window;
+
+pub trait Vertex {
+    fn desc() -> wgpu::VertexBufferLayout<'static>;
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct ModelVertex {
+    pub position: na::Point3<f32>,
+    pub color: na::Point3<f32>,
+}
+
+impl Vertex for ModelVertex {
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        use std::mem;
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<ModelVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+            ],
+        }
+    }
+}
+
+// lib.rs
+const VERTICES: &[ModelVertex] = &[
+    ModelVertex {
+        position: na::Point3::new(0.0, 0.5, 0.0),
+        color: na::Point3::new(1.0, 0.0, 0.0),
+    },
+    ModelVertex {
+        position: na::Point3::new(-0.5, -0.5, 0.0),
+        color: na::Point3::new(0.0, 1.0, 0.0),
+    },
+    ModelVertex {
+        position: na::Point3::new(0.5, -0.5, 0.0),
+        color: na::Point3::new(0.0, 0.0, 1.0),
+    },
+];
 
 pub struct Engine {
     window: Arc<Window>,
     context: RenderContext,
     render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
 }
 
 impl Engine {
     pub async fn new(window: Arc<Window>) -> color_eyre::Result<Self> {
         let context = RenderContext::new(window.clone()).await?;
-        let pipeline = PipelineBuilder::new()
+        let render_pipeline = PipelineBuilder::new()
             .with_labels("Render Pipeline Layout", "Render Pipeline")
             .with_shader(
                 &context
                     .device
                     .create_shader_module(wgpu::include_wgsl!("../../res/shaders/shader.wgsl")),
             )
+            .with_buffer_layouts(vec![Some(ModelVertex::desc())])
             .build(&context.device);
+
+        let vertex_buffer = context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(VERTICES),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
 
         Ok(Self {
             window,
             context,
-            render_pipeline: pipeline,
+            render_pipeline,
+            vertex_buffer,
         })
     }
 
@@ -90,7 +152,8 @@ impl Engine {
         });
 
         render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.draw(0..3, 0..1);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.draw(0..VERTICES.len() as u32, 0..1);
 
         drop(render_pass);
 

@@ -37,7 +37,6 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    #[allow(unused)]
     pub fn with_buffer_layouts(
         mut self,
         buffer_layouts: Vec<Option<wgpu::VertexBufferLayout<'static>>>,
