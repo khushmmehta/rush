@@ -49,19 +49,19 @@ impl ApplicationHandler for App {
             None => return,
         };
 
-        if let WindowEvent::Resized(size) = event {
-            engine.resize(size);
-        }
-
-        if self.input.process_window_event(&event) {
-            match engine.render() {
+        match event {
+            WindowEvent::Resized(size) => engine.resize(size),
+            WindowEvent::RedrawRequested => match engine.render() {
                 Ok(_) => {}
                 Err(e) => {
                     log::error!("{e}");
                     event_loop.exit();
                 }
-            }
+            },
+            _ => {}
         }
+
+        self.input.process_window_event(&event);
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
@@ -77,10 +77,5 @@ impl ApplicationHandler for App {
         if let Some(window) = &self.window {
             window.request_redraw();
         }
-
-        println!(
-            "{:.3}",
-            self.input.delta_time().unwrap().as_secs_f32() * 1000.0
-        );
     }
 }
