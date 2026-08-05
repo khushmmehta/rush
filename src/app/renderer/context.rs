@@ -3,6 +3,7 @@ use winit::window::Window;
 
 pub struct RenderContext {
     pub surface: wgpu::Surface<'static>,
+    pub surface_config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
 }
@@ -20,6 +21,17 @@ impl RenderContext {
         });
 
         let surface = instance.create_surface(window.clone())?;
+        let surface_config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            color_space: wgpu::SurfaceColorSpace::Auto,
+            width: size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::AutoVsync,
+            desired_maximum_frame_latency: 2,
+            alpha_mode: wgpu::CompositeAlphaMode::Auto,
+            view_formats: vec![],
+        };
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -41,29 +53,24 @@ impl RenderContext {
             })
             .await?;
 
+        // Directly called from the surface rather than `configure_surface()` function to avoid unnecessary mutation
+        surface.configure(&device, &surface_config);
+
         let ctx = Self {
             surface,
+            surface_config,
             device,
             queue,
         };
 
-        ctx.configure_surface(size);
-
         Ok(ctx)
     }
 
-    pub fn configure_surface(&self, size: winit::dpi::PhysicalSize<u32>) {
-        let surface_config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            color_space: wgpu::SurfaceColorSpace::Auto,
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::AutoNoVsync,
-            desired_maximum_frame_latency: 2,
-            alpha_mode: wgpu::CompositeAlphaMode::Auto,
-            view_formats: vec![],
-        };
-        self.surface.configure(&self.device, &surface_config);
+    pub fn configure_surface(&mut self, size: Option<winit::dpi::PhysicalSize<u32>>) {
+        if let Some(size) = size {
+            self.surface_config.width = size.width;
+            self.surface_config.height = size.height;
+        }
+        self.surface.configure(&self.device, &self.surface_config);
     }
 }

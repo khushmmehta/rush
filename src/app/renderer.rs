@@ -116,7 +116,7 @@ impl Engine {
 
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
-            self.context.configure_surface(size);
+            self.context.configure_surface(Some(size));
         }
     }
 
@@ -128,7 +128,8 @@ impl Engine {
                 return Ok(());
             }
             wgpu::CurrentSurfaceTexture::Outdated => {
-                self.context.configure_surface(self.window.inner_size());
+                self.context
+                    .configure_surface(Some(self.window.inner_size()));
                 return Ok(());
             }
             wgpu::CurrentSurfaceTexture::Lost => {
