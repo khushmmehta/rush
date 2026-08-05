@@ -11,7 +11,7 @@ hecs = "0.11.1"
 log = "0.4.33"
 nalgebra = { version = "0.35.0", features = ["bytemuck"] }
 pollster = "1.0.1"
-wgpu = "30.0.0"
+wgpu = { git = "https://github.com/gfx-rs/wgpu.git", branch = "v30" }
 winit = "0.30.13"
 winit_input_helper = "0.17.0"
 
