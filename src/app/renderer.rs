@@ -1,5 +1,6 @@
 mod context;
 mod pipeline;
+mod texture;
 
 use context::RenderContext;
 use nalgebra as na;
@@ -69,6 +70,7 @@ const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 pub struct Engine {
     window: Arc<Window>,
     context: RenderContext,
+    depth_texture: texture::Texture,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -78,6 +80,13 @@ pub struct Engine {
 impl Engine {
     pub async fn new(window: Arc<Window>) -> color_eyre::Result<Self> {
         let context = RenderContext::new(window.clone()).await?;
+
+        let depth_texture = texture::Texture::create_depth_texture(
+            &context.device,
+            &context.surface_config,
+            "depth_texture",
+        );
+
         let render_pipeline = PipelineBuilder::new()
             .with_labels("Render Pipeline Layout", "Render Pipeline")
             .with_shader(
@@ -107,6 +116,7 @@ impl Engine {
         Ok(Self {
             window,
             context,
+            depth_texture,
             render_pipeline,
             vertex_buffer,
             index_buffer,
@@ -117,6 +127,11 @@ impl Engine {
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
             self.context.configure_surface(Some(size));
+            self.depth_texture = texture::Texture::create_depth_texture(
+                &self.context.device,
+                &self.context.surface_config,
+                "depth_texture",
+            );
         }
     }
 
@@ -167,7 +182,14 @@ impl Engine {
                     store: wgpu::StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
             occlusion_query_set: None,
             timestamp_writes: None,
             multiview_mask: None,
