@@ -92,8 +92,6 @@ impl Engine {
         )
         .unwrap();
 
-        texture::mipmapper::generate_mipmaps(&context.device, &context.queue, &diffuse_texture);
-
         let texture_bind_group_layout =
             context
                 .device

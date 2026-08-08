@@ -154,7 +154,7 @@ impl Texture {
             height: dimensions.1,
             depth_or_array_layers: 1,
         };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+        let wgpu_texture = device.create_texture(&wgpu::TextureDescriptor {
             label,
             size,
             mip_level_count,
@@ -170,7 +170,7 @@ impl Texture {
         queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 aspect: wgpu::TextureAspect::All,
-                texture: &texture,
+                texture: &wgpu_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
@@ -183,7 +183,7 @@ impl Texture {
             size,
         );
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = wgpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("mipmapped_sampler"),
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -198,10 +198,13 @@ impl Texture {
             ..Default::default()
         });
 
-        Ok(Self {
-            texture,
+        let texture = Self {
+            texture: wgpu_texture,
             view,
             sampler,
-        })
+        };
+        mipmapper::generate_mipmaps(device, queue, &texture);
+
+        Ok(texture)
     }
 }
