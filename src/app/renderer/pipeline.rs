@@ -28,7 +28,6 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    #[allow(unused)]
     pub fn with_bind_group_layouts(
         mut self,
         bind_group_layouts: Vec<Option<&'a wgpu::BindGroupLayout>>,

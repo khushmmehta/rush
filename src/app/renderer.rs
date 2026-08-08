@@ -17,7 +17,7 @@ pub trait Vertex {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelVertex {
     pub position: na::Point3<f32>,
-    pub color: na::Point3<f32>,
+    pub tex_coords: na::Point2<f32>,
 }
 
 impl Vertex for ModelVertex {
@@ -35,7 +35,7 @@ impl Vertex for ModelVertex {
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x3,
+                    format: wgpu::VertexFormat::Float32x2,
                 },
             ],
         }
@@ -45,24 +45,24 @@ impl Vertex for ModelVertex {
 const VERTICES: &[ModelVertex] = &[
     ModelVertex {
         position: na::Point3::new(-0.0868241, 0.49240386, 0.0),
-        color: na::Point3::new(0.5, 0.0, 0.5),
-    }, // A
+        tex_coords: na::Point2::new(0.4131759, 0.00759614),
+    },
     ModelVertex {
         position: na::Point3::new(-0.49513406, 0.06958647, 0.0),
-        color: na::Point3::new(0.5, 0.0, 0.5),
-    }, // B
+        tex_coords: na::Point2::new(0.0048659444, 0.43041354),
+    },
     ModelVertex {
         position: na::Point3::new(-0.21918549, -0.44939706, 0.0),
-        color: na::Point3::new(0.5, 0.0, 0.5),
-    }, // C
+        tex_coords: na::Point2::new(0.28081453, 0.949397),
+    },
     ModelVertex {
         position: na::Point3::new(0.35966998, -0.3473291, 0.0),
-        color: na::Point3::new(0.5, 0.0, 0.5),
-    }, // D
+        tex_coords: na::Point2::new(0.85967, 0.84732914),
+    },
     ModelVertex {
         position: na::Point3::new(0.44147372, 0.2347359, 0.0),
-        color: na::Point3::new(0.5, 0.0, 0.5),
-    }, // E
+        tex_coords: na::Point2::new(0.9414737, 0.2652641),
+    },
 ];
 
 const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
@@ -75,11 +75,64 @@ pub struct Engine {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
+    diffuse_bind_group: wgpu::BindGroup,
+    diffuse_texture: texture::Texture,
 }
 
 impl Engine {
     pub async fn new(window: Arc<Window>) -> color_eyre::Result<Self> {
         let context = RenderContext::new(window.clone()).await?;
+
+        let diffuse_bytes = include_bytes!("../../res/bankrupt.jpg");
+        let diffuse_texture = texture::Texture::from_bytes(
+            &context.device,
+            &context.queue,
+            diffuse_bytes,
+            "bankrupt.jpg",
+        )
+        .unwrap();
+
+        let texture_bind_group_layout =
+            context
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                    label: Some("texture_bind_group_layout"),
+                });
+
+        let diffuse_bind_group = context
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("diffuse_bind_group"),
+                layout: &texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    },
+                ],
+            });
 
         let depth_texture = texture::Texture::create_depth_texture(
             &context.device,
@@ -89,6 +142,7 @@ impl Engine {
 
         let render_pipeline = PipelineBuilder::new()
             .with_labels("Render Pipeline Layout", "Render Pipeline")
+            .with_bind_group_layouts(vec![Some(&texture_bind_group_layout)])
             .with_shader(
                 &context
                     .device
@@ -121,6 +175,8 @@ impl Engine {
             vertex_buffer,
             index_buffer,
             num_indices: INDICES.len() as u32,
+            diffuse_bind_group,
+            diffuse_texture,
         })
     }
 
@@ -196,6 +252,7 @@ impl Engine {
         });
 
         render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
