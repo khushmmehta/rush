@@ -84,13 +84,10 @@ impl Engine {
         let context = RenderContext::new(window.clone()).await?;
 
         let diffuse_bytes = include_bytes!("../../res/bankrupt.jpg");
-        let diffuse_texture = texture::Texture::from_bytes_mipmapped(
-            &context.device,
-            &context.queue,
-            diffuse_bytes,
-            "bankrupt.jpg",
-        )
-        .unwrap();
+        let diffuse_texture = texture::Texture::from_bytes(diffuse_bytes)
+            .with_labels("bankrupt.jpg_texture", "bankrupt.jpg_texture_sampler")
+            .with_mipmaps(true)
+            .build(&context.device, &context.queue)?;
 
         let texture_bind_group_layout =
             context
