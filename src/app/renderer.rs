@@ -6,68 +6,38 @@ use context::RenderContext;
 use nalgebra as na;
 use pipeline::PipelineBuilder;
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
 use winit::window::Window;
 
-use super::components::{camera, resources};
+use super::components::{
+    camera,
+    model::{self, DrawModel, PrimitiveVertex, Vertex},
+    resources,
+};
 
-pub trait Vertex {
-    fn desc() -> wgpu::VertexBufferLayout<'static>;
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct ModelVertex {
-    pub position: na::Point3<f32>,
-    pub tex_coords: na::Point2<f32>,
-}
-
-impl Vertex for ModelVertex {
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<ModelVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-            ],
-        }
-    }
-}
-
-const VERTICES: &[ModelVertex] = &[
-    ModelVertex {
+const VERTICES: &[PrimitiveVertex] = &[
+    PrimitiveVertex {
         position: na::Point3::new(-0.0868241, 0.49240386, 0.0),
         tex_coords: na::Point2::new(0.4131759, 0.00759614),
     },
-    ModelVertex {
+    PrimitiveVertex {
         position: na::Point3::new(-0.49513406, 0.06958647, 0.0),
         tex_coords: na::Point2::new(0.0048659444, 0.43041354),
     },
-    ModelVertex {
+    PrimitiveVertex {
         position: na::Point3::new(-0.21918549, -0.44939706, 0.0),
         tex_coords: na::Point2::new(0.28081453, 0.949397),
     },
-    ModelVertex {
+    PrimitiveVertex {
         position: na::Point3::new(0.35966998, -0.3473291, 0.0),
         tex_coords: na::Point2::new(0.85967, 0.84732914),
     },
-    ModelVertex {
+    PrimitiveVertex {
         position: na::Point3::new(0.44147372, 0.2347359, 0.0),
         tex_coords: na::Point2::new(0.9414737, 0.2652641),
     },
 ];
 
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
+const INDICES: &[u32] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
 pub struct Engine {
     window: Arc<Window>,
@@ -77,10 +47,9 @@ pub struct Engine {
     camera_gpu: camera::CameraGPU,
     depth_texture: texture::Texture,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
+    model: model::Model,
     diffuse_bind_group: wgpu::BindGroup,
+    #[allow(unused)]
     diffuse_texture: texture::Texture,
 }
 
@@ -167,24 +136,20 @@ impl Engine {
                     .device
                     .create_shader_module(wgpu::include_wgsl!("../../res/shaders/shader.wgsl")),
             )
-            .with_buffer_layouts(vec![Some(ModelVertex::desc())])
+            .with_buffer_layouts(vec![Some(model::PrimitiveVertex::desc())])
             .build(&context.device);
 
-        let vertex_buffer = context
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-
-        let index_buffer = context
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage: wgpu::BufferUsages::INDEX,
-            });
+        // Hardcoded model for now; will not be present after I'm done with model loading
+        let model = model::Model {
+            meshes: vec![model::Mesh {
+                name: String::from("Test Pentagon"),
+                primitives: vec![model::Primitive::generate(
+                    &context.device,
+                    VERTICES,
+                    INDICES,
+                )],
+            }],
+        };
 
         Ok(Self {
             window,
@@ -194,9 +159,7 @@ impl Engine {
             camera_gpu,
             depth_texture,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indices: INDICES.len() as u32,
+            model,
             diffuse_bind_group,
             diffuse_texture,
         })
@@ -283,9 +246,7 @@ impl Engine {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
         render_pass.set_bind_group(1, &self.camera_gpu.bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+        render_pass.draw_model(&self.model);
 
         drop(render_pass);
 
