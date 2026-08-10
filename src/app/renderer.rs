@@ -9,6 +9,8 @@ use std::sync::Arc;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
 
+use super::components::camera;
+
 pub trait Vertex {
     fn desc() -> wgpu::VertexBufferLayout<'static>;
 }
@@ -70,6 +72,9 @@ const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 pub struct Engine {
     window: Arc<Window>,
     context: RenderContext,
+    camera: camera::Camera,
+    pub camera_controller: camera::CameraController,
+    camera_gpu: camera::CameraGPU,
     depth_texture: texture::Texture,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
@@ -137,9 +142,27 @@ impl Engine {
             "depth_texture",
         );
 
+        let camera = camera::Builder::new()
+            .position(0.0, 5.0, 10.0)
+            .rotation(-90.0, -20.0)
+            .perspective(
+                context.surface_config.width,
+                context.surface_config.height,
+                45.0,
+                0.1,
+                1000.0,
+            )
+            .build();
+        let camera_controller = camera::CameraController::new(10.0, 4.0);
+        let (camera_gpu, camera_bind_group_layout) =
+            camera::CameraGPU::new(&context.device, &camera);
+
         let render_pipeline = PipelineBuilder::new()
             .with_labels("Render Pipeline Layout", "Render Pipeline")
-            .with_bind_group_layouts(vec![Some(&texture_bind_group_layout)])
+            .with_bind_group_layouts(vec![
+                Some(&texture_bind_group_layout),
+                Some(&camera_bind_group_layout),
+            ])
             .with_shader(
                 &context
                     .device
@@ -167,6 +190,9 @@ impl Engine {
         Ok(Self {
             window,
             context,
+            camera,
+            camera_controller,
+            camera_gpu,
             depth_texture,
             render_pipeline,
             vertex_buffer,
@@ -180,12 +206,19 @@ impl Engine {
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
         if size.width > 0 && size.height > 0 {
             self.context.configure_surface(Some(size));
+            self.camera.resize(size.width, size.height);
             self.depth_texture = texture::Texture::create_depth_texture(
                 &self.context.device,
                 &self.context.surface_config,
                 "depth_texture",
             );
         }
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        self.camera_controller.update_camera(&mut self.camera, dt);
+        self.camera_gpu
+            .update_buffer(&self.context.queue, &self.camera);
     }
 
     pub fn render(&mut self) -> color_eyre::Result<()> {
@@ -250,6 +283,7 @@ impl Engine {
 
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+        render_pass.set_bind_group(1, &self.camera_gpu.bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
