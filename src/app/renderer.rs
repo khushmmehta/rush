@@ -1,6 +1,6 @@
 mod context;
 mod pipeline;
-mod texture;
+pub mod texture;
 
 use context::RenderContext;
 use nalgebra as na;
@@ -9,7 +9,7 @@ use std::sync::Arc;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
 
-use super::components::camera;
+use super::components::{camera, resources};
 
 pub trait Vertex {
     fn desc() -> wgpu::VertexBufferLayout<'static>;
@@ -88,8 +88,7 @@ impl Engine {
     pub async fn new(window: Arc<Window>) -> color_eyre::Result<Self> {
         let context = RenderContext::new(window.clone()).await?;
 
-        let diffuse_bytes = include_bytes!("../../res/bankrupt.jpg");
-        let diffuse_texture = texture::Texture::from_bytes(diffuse_bytes)
+        let diffuse_texture = resources::load_texture("bankrupt.jpg")?
             .with_labels("bankrupt.jpg_texture", "bankrupt.jpg_texture_sampler")
             .with_mipmaps(true)
             .build(&context.device, &context.queue)?;
