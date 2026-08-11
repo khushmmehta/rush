@@ -1,7 +1,8 @@
-use std::ops::Range;
-
 use nalgebra as na;
+use std::ops::Range;
 use wgpu::util::DeviceExt;
+
+use super::material::Material;
 
 pub trait Vertex {
     fn desc() -> wgpu::VertexBufferLayout<'static>;
@@ -38,10 +39,10 @@ impl Vertex for PrimitiveVertex {
 
 pub struct Model {
     pub meshes: Vec<Mesh>,
+    pub materials: Vec<super::material::Material>,
 }
 
 pub struct Mesh {
-    #[allow(unused)]
     pub name: String,
     pub primitives: Vec<Primitive>,
 }
@@ -50,10 +51,16 @@ pub struct Primitive {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
+    pub material_id: usize,
 }
 
 impl Primitive {
-    pub fn generate(device: &wgpu::Device, vertices: &[PrimitiveVertex], indices: &[u32]) -> Self {
+    pub fn generate(
+        device: &wgpu::Device,
+        vertices: &[PrimitiveVertex],
+        indices: &[u32],
+        material_id: usize,
+    ) -> Self {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(vertices),
@@ -72,28 +79,40 @@ impl Primitive {
             vertex_buffer,
             index_buffer,
             num_elements,
+            material_id,
         }
     }
 }
 
 pub trait DrawModel<'a> {
-    #[allow(unused)]
-    fn draw_mesh(&mut self, mesh: &'a Mesh);
-    fn draw_primitive_instanced(&mut self, mesh: &'a Primitive, instances: Range<u32>);
+    fn draw_mesh(&mut self, mesh: &'a Mesh, material: &'a Material);
+    fn draw_primitive_instanced(
+        &mut self,
+        mesh: &'a Primitive,
+        material: &'a Material,
+        instances: Range<u32>,
+    );
     fn draw_model(&mut self, model: &'a Model);
     fn draw_model_instanced(&mut self, model: &'a Model, instances: Range<u32>);
 }
+
 impl<'a, 'b> DrawModel<'b> for wgpu::RenderPass<'a>
 where
     'b: 'a,
 {
-    fn draw_mesh(&mut self, mesh: &'b Mesh) {
+    fn draw_mesh(&mut self, mesh: &'b Mesh, material: &'a Material) {
         for prim in &mesh.primitives {
-            self.draw_primitive_instanced(prim, 0..1);
+            self.draw_primitive_instanced(prim, material, 0..1);
         }
     }
 
-    fn draw_primitive_instanced(&mut self, prim: &'b Primitive, instances: Range<u32>) {
+    fn draw_primitive_instanced(
+        &mut self,
+        prim: &'b Primitive,
+        material: &'a Material,
+        instances: Range<u32>,
+    ) {
+        self.set_bind_group(0, &material.bind_group, &[]);
         self.set_vertex_buffer(0, prim.vertex_buffer.slice(..));
         self.set_index_buffer(prim.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         self.draw_indexed(0..prim.num_elements, 0, instances);
@@ -105,7 +124,8 @@ where
     fn draw_model_instanced(&mut self, model: &'b Model, instances: Range<u32>) {
         for mesh in &model.meshes {
             for prim in &mesh.primitives {
-                self.draw_primitive_instanced(prim, instances.clone());
+                let material = &model.materials[prim.material_id];
+                self.draw_primitive_instanced(prim, material, instances.clone());
             }
         }
     }

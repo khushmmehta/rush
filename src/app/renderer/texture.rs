@@ -19,9 +19,9 @@ impl TextureBuilder {
         }
     }
 
-    pub fn with_labels(mut self, texture_label: &str, sampler_label: &str) -> Self {
-        self.texture_label = Some(texture_label.to_string());
-        self.sampler_label = Some(sampler_label.to_string());
+    pub fn with_labels(mut self, texture_label: String, sampler_label: String) -> Self {
+        self.texture_label = Some(texture_label);
+        self.sampler_label = Some(sampler_label);
         self
     }
 
@@ -183,7 +183,6 @@ impl Texture {
         TextureBuilder::new(img)
     }
 
-    #[allow(unused)]
     pub fn from_image(img: image::DynamicImage) -> TextureBuilder {
         TextureBuilder::new(img)
     }

@@ -3,41 +3,14 @@ mod pipeline;
 pub mod texture;
 
 use context::RenderContext;
-use nalgebra as na;
 use pipeline::PipelineBuilder;
 use std::sync::Arc;
 use winit::window::Window;
 
 use super::components::{
     camera,
-    model::{self, DrawModel, PrimitiveVertex, Vertex},
-    resources,
+    model::{self, DrawModel, Vertex},
 };
-
-const VERTICES: &[PrimitiveVertex] = &[
-    PrimitiveVertex {
-        position: na::Point3::new(-0.0868241, 0.49240386, 0.0),
-        tex_coords: na::Point2::new(0.4131759, 0.00759614),
-    },
-    PrimitiveVertex {
-        position: na::Point3::new(-0.49513406, 0.06958647, 0.0),
-        tex_coords: na::Point2::new(0.0048659444, 0.43041354),
-    },
-    PrimitiveVertex {
-        position: na::Point3::new(-0.21918549, -0.44939706, 0.0),
-        tex_coords: na::Point2::new(0.28081453, 0.949397),
-    },
-    PrimitiveVertex {
-        position: na::Point3::new(0.35966998, -0.3473291, 0.0),
-        tex_coords: na::Point2::new(0.85967, 0.84732914),
-    },
-    PrimitiveVertex {
-        position: na::Point3::new(0.44147372, 0.2347359, 0.0),
-        tex_coords: na::Point2::new(0.9414737, 0.2652641),
-    },
-];
-
-const INDICES: &[u32] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
 pub struct Engine {
     window: Arc<Window>,
@@ -47,20 +20,12 @@ pub struct Engine {
     camera_gpu: camera::CameraGPU,
     depth_texture: texture::Texture,
     render_pipeline: wgpu::RenderPipeline,
-    model: model::Model,
-    diffuse_bind_group: wgpu::BindGroup,
-    #[allow(unused)]
-    diffuse_texture: texture::Texture,
+    gltf_model: model::Model,
 }
 
 impl Engine {
     pub async fn new(window: Arc<Window>) -> color_eyre::Result<Self> {
         let context = RenderContext::new(window.clone()).await?;
-
-        let diffuse_texture = resources::load_texture("bankrupt.jpg")?
-            .with_labels("bankrupt.jpg_texture", "bankrupt.jpg_texture_sampler")
-            .with_mipmaps(true)
-            .build(&context.device, &context.queue)?;
 
         let texture_bind_group_layout =
             context
@@ -86,23 +51,6 @@ impl Engine {
                     ],
                     label: Some("texture_bind_group_layout"),
                 });
-
-        let diffuse_bind_group = context
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("diffuse_bind_group"),
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    },
-                ],
-            });
 
         let depth_texture = texture::Texture::create_depth_texture(
             &context.device,
@@ -139,17 +87,12 @@ impl Engine {
             .with_buffer_layouts(vec![Some(model::PrimitiveVertex::desc())])
             .build(&context.device);
 
-        // Hardcoded model for now; will not be present after I'm done with model loading
-        let model = model::Model {
-            meshes: vec![model::Mesh {
-                name: String::from("Test Pentagon"),
-                primitives: vec![model::Primitive::generate(
-                    &context.device,
-                    VERTICES,
-                    INDICES,
-                )],
-            }],
-        };
+        let gltf_model = super::components::resources::load_model(
+            "stoned-cube.glb",
+            &context.device,
+            &context.queue,
+            texture_bind_group_layout,
+        )?;
 
         Ok(Self {
             window,
@@ -159,9 +102,7 @@ impl Engine {
             camera_gpu,
             depth_texture,
             render_pipeline,
-            model,
-            diffuse_bind_group,
-            diffuse_texture,
+            gltf_model,
         })
     }
 
@@ -244,9 +185,8 @@ impl Engine {
         });
 
         render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
         render_pass.set_bind_group(1, &self.camera_gpu.bind_group, &[]);
-        render_pass.draw_model(&self.model);
+        render_pass.draw_model(&self.gltf_model);
 
         drop(render_pass);
 
