@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use nalgebra as na;
+use rayon::prelude::*;
 
 use super::{super::renderer::texture, material, model};
 
@@ -21,58 +22,84 @@ pub fn load_texture(file_name: &str) -> color_eyre::Result<texture::TextureBuild
     let data = load_binary(file_name)?;
     Ok(texture::Texture::from_bytes(&data))
 }
-
 pub fn load_model(
     file_name: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     layout: wgpu::BindGroupLayout,
 ) -> color_eyre::Result<model::Model> {
-    let (doc, bufs, imgs) = gltf::import(load_path(file_name))?;
+    let path = &load_path(file_name);
+    let base = path.parent();
 
-    let mut materials: Vec<material::Material> = Vec::with_capacity(doc.materials().len());
+    let start = std::time::Instant::now();
 
-    for mat in doc.materials() {
-        let diffuse_texture = match mat.pbr_metallic_roughness().base_color_texture() {
-            Some(info) => {
-                let img = &imgs[info.texture().index()];
-                texture::Texture::from_image(gltf_img_to_dyn_img(img)?)
-                    .with_labels(
-                        [mat.name().unwrap(), "__diffuse_texture"].join(""),
-                        [mat.name().unwrap(), "__diffuse_sampler"].join(""),
-                    )
-                    .with_mipmaps(true)
-                    .build(device, queue)
+    let gltf = gltf::Gltf::open(path)?;
+    let doc = gltf.document;
+    let blob = gltf.blob;
+
+    let bufs = gltf::import_buffers(&doc, base, blob)?;
+
+    let imgs: Vec<gltf::image::Data> = doc
+        .images()
+        .collect::<Vec<_>>()
+        .par_iter()
+        .map(|img| gltf::image::Data::from_source(img.source(), base, &bufs))
+        .collect::<gltf::Result<Vec<_>>>()?;
+
+    let elapsed = start.elapsed().as_secs_f64();
+    println!("gLTF import time: {}", elapsed);
+
+    let start = std::time::Instant::now();
+
+    let materials = doc
+        .materials()
+        .collect::<Vec<_>>()
+        .par_iter()
+        .map(|mat| {
+            let diffuse_texture = match mat.pbr_metallic_roughness().base_color_texture() {
+                Some(info) => {
+                    let img = &imgs[info.texture().index()];
+                    texture::Texture::from_image(gltf_img_to_dyn_img(img).unwrap())
+                        .with_labels(
+                            [mat.name().unwrap(), "__diffuse_texture"].join(""),
+                            [mat.name().unwrap(), "__diffuse_sampler"].join(""),
+                        )
+                        .with_mipmaps(true)
+                        .build(device, queue)
+                }
+                None => {
+                    let img = image::DynamicImage::ImageRgba8(image::ImageBuffer::from_pixel(
+                        1,
+                        1,
+                        image::Rgba([255, 255, 255, 255]),
+                    ));
+                    texture::Texture::from_image(img)
+                        .with_labels(
+                            String::from("blank_texture"),
+                            String::from("blank_texture_sampler"),
+                        )
+                        .with_mipmaps(false)
+                        .build(device, queue)
+                }
             }
-            None => {
-                let img = image::DynamicImage::ImageRgba8(image::ImageBuffer::from_pixel(
-                    1,
-                    1,
-                    image::Rgba([255, 255, 255, 255]),
-                ));
-                texture::Texture::from_image(img)
-                    .with_labels(
-                        String::from("blank_texture"),
-                        String::from("blank_texture_sampler"),
-                    )
-                    .with_mipmaps(false)
-                    .build(device, queue)
-            }
-        }?;
+            .unwrap();
 
-        materials.push(material::Material::new(
-            mat.name().unwrap(),
-            diffuse_texture,
-            &layout,
-            device,
-        ));
-    }
+            material::Material::new(mat.name().unwrap(), diffuse_texture, &layout, device)
+        })
+        .collect::<Vec<_>>();
+
+    let elapsed = start.elapsed().as_secs_f64();
+    println!("data parse time: {}", elapsed);
 
     let meshes = doc
         .meshes()
+        .collect::<Vec<_>>()
+        .par_iter()
         .map(|mesh| {
             let primitives = mesh
                 .primitives()
+                .collect::<Vec<_>>()
+                .par_iter()
                 .map(|prim| {
                     let reader = prim.reader(|buf| Some(&bufs[buf.index()]));
 
@@ -90,10 +117,7 @@ pub fn load_model(
                     let vertices: Vec<model::PrimitiveVertex> = (0..positions.len())
                         .map(|i| model::PrimitiveVertex {
                             position: na::Point3::from(positions[i]),
-                            tex_coords: na::Point2::from([
-                                tex_coords[i][0],
-                                1.0 - tex_coords[i][1],
-                            ]),
+                            tex_coords: na::Point2::from(tex_coords[i]),
                         })
                         .collect();
 
