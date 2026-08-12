@@ -82,7 +82,7 @@ impl Engine {
             .with_shader(
                 &context
                     .device
-                    .create_shader_module(wgpu::include_wgsl!("../../res/shaders/shader.wgsl")),
+                    .create_shader_module(wgpu::include_spirv!("../../res/shaders/shader.spv")),
             )
             .with_buffer_layouts(vec![Some(model::PrimitiveVertex::desc())])
             .build(&context.device);
