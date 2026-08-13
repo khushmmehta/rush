@@ -88,7 +88,7 @@ impl Engine {
             .build(&context.device);
 
         let gltf_model = super::components::resources::load_model(
-            "bistro_scene.glb",
+            "bistro.glb",
             &context.device,
             &context.queue,
             texture_bind_group_layout,
