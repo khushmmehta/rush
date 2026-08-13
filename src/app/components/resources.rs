@@ -58,7 +58,7 @@ pub fn load_model(
         .map(|mat| {
             let diffuse_texture = match mat.pbr_metallic_roughness().base_color_texture() {
                 Some(info) => {
-                    let img = &imgs[info.texture().index()];
+                    let img = &imgs[info.texture().source().index()];
                     texture::Texture::from_image(gltf_img_to_dyn_img(img).unwrap())
                         .with_labels(
                             [mat.name().unwrap(), "__diffuse_texture"].join(""),
