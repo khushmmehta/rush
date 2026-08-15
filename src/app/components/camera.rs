@@ -1,16 +1,15 @@
 use na::{Matrix4, Point3, Vector3};
-use nalgebra::{self as na, Perspective3, Vector2};
+use nalgebra::{self as na, Perspective3, Rotation3, Vector2};
 use wgpu::util::DeviceExt;
 use winit::keyboard::KeyCode;
 
+const VERTICAL_CLAMP: f32 = 80f32.to_radians();
+
 pub struct Camera {
     position: Point3<f32>,
-    yaw: f32,
-    pitch: f32,
+    rotation: Rotation3<f32>,
     projection: Perspective3<f32>,
 }
-
-const VERTICAL_CLAMP: f32 = 80f32.to_radians();
 
 impl Camera {
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -18,8 +17,8 @@ impl Camera {
     }
 
     pub fn calc_matrix(&self) -> Matrix4<f32> {
-        let (sin_pitch, cos_pitch) = self.pitch.sin_cos();
-        let (sin_yaw, cos_yaw) = self.yaw.sin_cos();
+        let (sin_pitch, cos_pitch) = self.rotation.euler_angles().1.sin_cos();
+        let (sin_yaw, cos_yaw) = self.rotation.euler_angles().2.sin_cos();
 
         let direction =
             Vector3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize();
@@ -64,8 +63,10 @@ impl CameraController {
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, dt: f32) {
-        let (yaw_sin, yaw_cos) = camera.yaw.sin_cos();
-        let pitch_sin = camera.pitch.sin();
+        let mut yaw = camera.rotation.euler_angles().2;
+        let mut pitch = camera.rotation.euler_angles().1;
+        let (yaw_sin, yaw_cos) = yaw.sin_cos();
+        let pitch_sin = pitch.sin();
 
         let pos_delta = Vector3::new(
             (yaw_cos * self.amount.z) - (yaw_sin * self.amount.x),
@@ -77,12 +78,14 @@ impl CameraController {
             camera.position += dir * self.speed * self.multiplier * dt;
         }
 
-        camera.yaw += self.rotation_delta.x.to_radians() * self.sensitivity * dt;
-        camera.pitch += -self.rotation_delta.y.to_radians() * self.sensitivity * dt;
+        yaw += self.rotation_delta.x.to_radians() * self.sensitivity * dt;
+        pitch += -self.rotation_delta.y.to_radians() * self.sensitivity * dt;
 
         self.rotation_delta = Vector2::zeros();
 
-        camera.pitch = camera.pitch.clamp(-VERTICAL_CLAMP, VERTICAL_CLAMP);
+        pitch = pitch.clamp(-VERTICAL_CLAMP, VERTICAL_CLAMP);
+
+        camera.rotation = Rotation3::from_euler_angles(0.0, pitch, yaw);
     }
 }
 
@@ -144,8 +147,7 @@ impl Builder {
     pub fn build(self) -> Camera {
         Camera {
             position: self.position,
-            yaw: self.yaw,
-            pitch: self.pitch,
+            rotation: na::Rotation3::from_euler_angles(0.0, self.pitch, self.yaw),
             projection: Perspective3::new(
                 self.width as f32 / self.height as f32,
                 self.fovy,
