@@ -8,16 +8,16 @@ use std::sync::Arc;
 use winit::window::Window;
 
 use super::components::{
-    camera,
+    camera::{Camera, CameraController, CameraGPU},
     model::{self, DrawModel, Vertex},
 };
 
 pub struct Engine {
     window: Arc<Window>,
     context: RenderContext,
-    camera: camera::Camera,
-    pub camera_controller: camera::CameraController,
-    camera_gpu: camera::CameraGPU,
+    camera: Camera,
+    pub camera_controller: CameraController,
+    camera_gpu: CameraGPU,
     depth_texture: texture::Texture,
     render_pipeline: wgpu::RenderPipeline,
     gltf_model: model::Model,
@@ -58,10 +58,10 @@ impl Engine {
             "depth_texture",
         );
 
-        let camera = camera::Builder::new()
-            .position(0.0, 5.0, 10.0)
-            .rotation(-90.0, -20.0)
-            .perspective(
+        let camera = Camera::builder()
+            .with_position(0.0, 5.0, 10.0)
+            .with_rotation(-90.0, -20.0)
+            .with_perspective(
                 context.surface_config.width,
                 context.surface_config.height,
                 45.0,
@@ -69,9 +69,8 @@ impl Engine {
                 1000.0,
             )
             .build();
-        let camera_controller = camera::CameraController::new(10.0, 4.0);
-        let (camera_gpu, camera_bind_group_layout) =
-            camera::CameraGPU::new(&context.device, &camera);
+        let camera_controller = CameraController::new(10.0, 4.0);
+        let (camera_gpu, camera_bind_group_layout) = CameraGPU::new(&context.device, &camera);
 
         let render_pipeline = PipelineBuilder::new()
             .with_labels("Render Pipeline Layout", "Render Pipeline")

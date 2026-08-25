@@ -12,6 +12,19 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn builder() -> Builder {
+        Builder {
+            position: Point3::origin(),
+            yaw: 0.0,
+            pitch: 0.0,
+            width: 0,
+            height: 0,
+            fovy: 0.0,
+            znear: 0.0,
+            zfar: 0.0,
+        }
+    }
+
     pub fn resize(&mut self, width: u32, height: u32) {
         self.projection.set_aspect(width as f32 / height as f32);
     }
@@ -101,33 +114,20 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new() -> Self {
-        Self {
-            position: Point3::origin(),
-            yaw: 0.0,
-            pitch: 0.0,
-            width: 0,
-            height: 0,
-            fovy: 0.0,
-            znear: 0.0,
-            zfar: 0.0,
-        }
-    }
-
-    pub fn position(mut self, x: f32, y: f32, z: f32) -> Self {
+    pub fn with_position(mut self, x: f32, y: f32, z: f32) -> Self {
         self.position = Point3::new(x, y, z);
 
         self
     }
 
-    pub fn rotation(mut self, yaw: f32, pitch: f32) -> Self {
+    pub fn with_rotation(mut self, yaw: f32, pitch: f32) -> Self {
         self.yaw = yaw.to_radians();
         self.pitch = pitch.to_radians();
 
         self
     }
 
-    pub fn perspective(
+    pub fn with_perspective(
         mut self,
         width: u32,
         height: u32,

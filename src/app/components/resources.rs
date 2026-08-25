@@ -12,9 +12,7 @@ pub fn load_path(file_name: &str) -> PathBuf {
 }
 
 pub fn load_binary(file_name: &str) -> color_eyre::Result<Vec<u8>> {
-    let path = std::path::Path::new(env!("OUT_DIR"))
-        .join("res")
-        .join(file_name);
+    let path = load_path(file_name);
     Ok(std::fs::read(path)?)
 }
 
