@@ -1,6 +1,7 @@
+use super::super::shader;
+
 pub fn generate_mipmaps(device: &wgpu::Device, queue: &wgpu::Queue, texture: &super::Texture) {
-    let shader =
-        device.create_shader_module(wgpu::include_spirv!("../../../../res/shaders/blit.spv"));
+    let shader = device.create_shader_module(shader::blit());
 
     let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("blit"),

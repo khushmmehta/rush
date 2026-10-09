@@ -1,5 +1,6 @@
 mod context;
 mod pipeline;
+pub mod shader;
 pub mod texture;
 
 use context::RenderContext;
@@ -78,16 +79,12 @@ impl Engine {
                 Some(&texture_bind_group_layout),
                 Some(&camera_bind_group_layout),
             ])
-            .with_shader(
-                &context
-                    .device
-                    .create_shader_module(wgpu::include_spirv!("../../res/shaders/shader.spv")),
-            )
+            .with_shader(&context.device.create_shader_module(shader::main()))
             .with_buffer_layouts(vec![Some(model::PrimitiveVertex::desc())])
             .build(&context.device);
 
         let gltf_model = super::components::resources::load_model(
-            "bistro.glb",
+            "stoned-cube.glb",
             &context.device,
             &context.queue,
             texture_bind_group_layout,
