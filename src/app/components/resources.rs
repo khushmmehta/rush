@@ -16,6 +16,7 @@ pub fn load_binary(file_name: &str) -> color_eyre::Result<Vec<u8>> {
     Ok(std::fs::read(path)?)
 }
 
+#[allow(unused)]
 pub fn load_texture(file_name: &str) -> color_eyre::Result<texture::TextureBuilder> {
     let data = load_binary(file_name)?;
     Ok(texture::Texture::from_bytes(&data))

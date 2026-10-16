@@ -17,9 +17,8 @@ pub struct PrimitiveVertex {
 
 impl Vertex for PrimitiveVertex {
     fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<PrimitiveVertex>() as wgpu::BufferAddress,
+            array_stride: size_of::<PrimitiveVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
@@ -28,7 +27,7 @@ impl Vertex for PrimitiveVertex {
                     format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    offset: size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
                 },
@@ -39,9 +38,10 @@ impl Vertex for PrimitiveVertex {
 
 pub struct Model {
     pub meshes: Vec<Mesh>,
-    pub materials: Vec<super::material::Material>,
+    pub materials: Vec<Material>,
 }
 
+#[allow(unused)]
 pub struct Mesh {
     pub name: String,
     pub primitives: Vec<Primitive>,
@@ -84,6 +84,7 @@ impl Primitive {
     }
 }
 
+#[allow(unused)]
 pub trait DrawModel<'a> {
     fn draw_mesh(&mut self, mesh: &'a Mesh, material: &'a Material);
     fn draw_primitive_instanced(

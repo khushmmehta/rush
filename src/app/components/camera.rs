@@ -147,7 +147,7 @@ impl Builder {
     pub fn build(self) -> Camera {
         Camera {
             position: self.position,
-            rotation: na::Rotation3::from_euler_angles(0.0, self.pitch, self.yaw),
+            rotation: Rotation3::from_euler_angles(0.0, self.pitch, self.yaw),
             projection: Perspective3::new(
                 self.width as f32 / self.height as f32,
                 self.fovy,

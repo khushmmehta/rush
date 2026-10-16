@@ -33,6 +33,10 @@ impl App {
 }
 
 impl ApplicationHandler for App {
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, _cause: winit::event::StartCause) {
+        self.input.step();
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
@@ -40,19 +44,6 @@ impl ApplicationHandler for App {
 
         window.request_redraw();
         self.window = Some(window);
-    }
-
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, _cause: winit::event::StartCause) {
-        self.input.step();
-    }
-
-    fn device_event(
-        &mut self,
-        _event_loop: &ActiveEventLoop,
-        _device_id: winit::event::DeviceId,
-        event: winit::event::DeviceEvent,
-    ) {
-        self.input.process_device_event(&event);
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _wid: WindowId, event: WindowEvent) {
@@ -77,6 +68,15 @@ impl ApplicationHandler for App {
         }
 
         self.input.process_window_event(&event);
+    }
+
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        self.input.process_device_event(&event);
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {

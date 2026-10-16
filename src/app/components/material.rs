@@ -1,5 +1,6 @@
 use crate::app::renderer::texture;
 
+#[allow(unused)]
 pub struct Material {
     pub name: String,
     pub diffuse_texture: texture::Texture,
